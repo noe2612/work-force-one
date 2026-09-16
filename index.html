@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Work FORCE One</title>
+
+<script src="https://unpkg.com/html5-qrcode"></script>
+
+<style>
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #10141c;
+    color: white;
+}
+
+header {
+    background: #171d27;
+    text-align: center;
+    padding: 25px;
+    border-bottom: 3px solid #d4af37;
+}
+
+h1 {
+    margin: 0;
+    color: #d4af37;
+    letter-spacing: 2px;
+}
+
+.subtitle {
+    margin-top: 8px;
+    color: #ddd;
+}
+
+.container {
+    max-width: 700px;
+    margin: auto;
+    padding: 20px;
+}
+
+.card {
+    background: #1c2430;
+    padding: 20px;
+    margin-bottom: 20px;
+    border-radius: 18px;
+}
+
+button {
+    padding: 14px 20px;
+    border: none;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: bold;
+    margin: 5px;
+}
+
+.gold {
+    background: #d4af37;
+    color: black;
+}
+
+.dark {
+    background: #374151;
+    color: white;
+}
+
+input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 13px;
+    margin: 8px 0;
+    border-radius: 10px;
+    border: 1px solid #555;
+    background: #10141c;
+    color: white;
+    font-size: 16px;
+}
+
+#reader {
+    display: none;
+    margin-top: 15px;
+}
+
+#result {
+    display: none;
+    padding: 20px;
+    margin-top: 15px;
+    border-radius: 15px;
+    text-align: center;
+    font-size: 20px;
+}
+
+.authorized {
+    background: #14532d;
+}
+
+.refused {
+    background: #7f1d1d;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th, td {
+    padding: 10px;
+    border-bottom: 1px solid #444;
+    text-align: left;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+    <h1>👑 WORK FORCE ONE</h1>
+    <div class="subtitle">
+        Poste présidentiel de contrôle d'accès
+    </div>
+</header>
+
+<div class="container">
+
+<div class="card">
+    <h2>📷 Contrôle d'accès</h2>
+
+    <button class="gold" onclick="startScanner()">
+        Scanner un QR Code
+    </button>
+
+    <button class="dark" onclick="stopScanner()">
+        Arrêter
+    </button>
+
+    <div id="reader"></div>
+
+    <div id="result"></div>
+</div>
+
+
+<div class="card">
+
+    <h2>👤 Ajouter une personne</h2>
+
+    <input id="name" placeholder="Prénom">
+
+    <label>
+        <input id="authorized" type="checkbox" checked>
+        Autorisation d'entrée
+    </label>
+
+    <br>
+
+    <label>
+        <input id="privilege" type="checkbox">
+        ⭐ Passe privilège
+    </label>
+
+    <br><br>
+
+    <button class="gold" onclick="addPerson()">
+        Ajouter
+    </button>
+
+</div>
+
+
+<div class="card">
+
+    <h2>📋 Registre des entrées</h2>
+
+    <button class="dark" onclick="clearLog()">
+        Effacer le registre
+    </button>
+
+    <div style="overflow-x:auto">
+
+        <table>
+
+            <thead>
+                <tr>
+                    <th>Personne</th>
+                    <th>Date</th>
+                    <th>Heure</th>
+                    <th>Résultat</th>
+                </tr>
+            </thead>
+
+            <tbody id="log"></tbody>
+
+        </table>
+
+    </div>
+
+</div>
+
+
+<div class="card">
+
+    <h2>👥 Personnes enregistrées</h2>
+
+    <div id="people"></div>
+
+</div>
+
+</div>
+
+
+<script>
+
+const PEOPLE_KEY = "WFO_PEOPLE";
+const LOG_KEY = "WFO_LOG";
+
+let people =
+    JSON.parse(localStorage.getItem(PEOPLE_KEY) || "[]");
+
+let log =
+    JSON.parse(localStorage.getItem(LOG_KEY) || "[]");
+
+let scanner = null;
+
+
+function save() {
+
+    localStorage.setItem(
+        PEOPLE_KEY,
+        JSON.stringify(people)
+    );
+
+    localStorage.setItem(
+        LOG_KEY,
+        JSON.stringify(log)
+    );
+
+}
+
+
+function render() {
+
+    document.getElementById("people").innerHTML =
+        people.length
+
+        ?
+
+        people.map(p => `
+
+            <div style="
+                padding:12px;
+                border-bottom:1px solid #444;
+            ">
+
+                <b>${p.name}</b>
+
+                <br>
+
+                <small>
+                    Code : ${p.code}
+                </small>
+
+                <br>
+
+                ${p.authorized
+                    ? "✅ Autorisé"
+                    : "❌ Non autorisé"}
+
+                ${p.privilege
+                    ? " ⭐ Privilège"
+                    : ""}
+
+            </div>
+
+        `).join("")
+
+        :
+
+        "<p>Aucune personne enregistrée.</p>";
+
+
+    document.getElementById("log").innerHTML =
+
+        log.slice().reverse().map(x => `
+
+            <tr>
+
+                <td>${x.name}</td>
+
+                <td>${x.date}</td>
+
+                <td>${x.time}</td>
+
+                <td>
+                    ${x.ok
+                        ? "✅ Autorisé"
+                        : "❌ Refusé"}
+                </td>
+
+            </tr>
+
+        `).join("");
+
+}
+
+
+function addPerson() {
+
+    const name =
+        document.getElementById("name").value.trim();
+
+    if (!name) {
+
+        alert("Entre un prénom.");
+
+        return;
+
+    }
+
+
+    const code =
+        "WFO-" +
+        Math.random()
+        .toString(36)
+        .substring(2,10)
+        .toUpperCase();
+
+
+    people.push({
+
+        name: name,
+
+        code: code,
+
+        authorized:
+            document.getElementById("authorized").checked,
+
+        privilege:
+            document.getElementById("privilege").checked
+
+    });
+
+
+    save();
+
+    render();
+
+
+    document.getElementById("name").value = "";
+
+
+    alert(
+        "Personne ajoutée !\n\n" +
+        "Code QR : " + code +
+        "\n\nCe code devra être placé dans son QR Code."
+    );
+
+}
+
+
+function checkCode(code) {
+
+    const person =
+        people.find(
+            p => p.code === code.trim()
+        );
+
+
+    const now = new Date();
+
+    const date =
+        now.toLocaleDateString("fr-FR");
+
+    const time =
+        now.toLocaleTimeString("fr-FR");
+
+
+    const result =
+        document.getElementById("result");
+
+
+    result.style.display = "block";
+
+
+    if (person && person.authorized) {
+
+        result.className = "authorized";
+
+        result.innerHTML =
+
+            "✅ ACCÈS AUTORISÉ<br><br>" +
+
+            "<b>" + person.name + "</b>" +
+
+            (person.privilege
+                ? "<br>⭐ Passe privilège"
+                : "");
+
+
+        log.push({
+
+            name: person.name,
+
+            date: date,
+
+            time: time,
+
+            ok: true
+
+        });
+
+
+    } else {
+
+        result.className = "refused";
+
+        result.innerHTML =
+
+            "❌ ACCÈS REFUSÉ<br><br>" +
+
+            (person
+                ? person.name
+                : "Personne inconnue");
+
+
+        log.push({
+
+            name:
+                person
+                ? person.name
+                : "Inconnu",
+
+            date: date,
+
+            time: time,
+
+            ok: false
+
+        });
+
+    }
+
+
+    save();
+
+    render();
+
+}
+
+
+async function startScanner() {
+
+    document.getElementById("reader")
+        .style.display = "block";
+
+
+    document.getElementById("result")
+        .style.display = "none";
+
+
+    scanner =
+        new Html5Qrcode("reader");
+
+
+    try {
+
+        await scanner.start(
+
+            {
+                facingMode: "environment"
+            },
+
+            {
+                fps: 10,
+
+                qrbox: {
+                    width: 250,
+                    height: 250
+                }
+            },
+
+            code => {
+
+                checkCode(code);
+
+                stopScanner();
+
+            },
+
+            () => {}
+
+        );
+
+    }
+
+    catch(error) {
+
+        document.getElementById("result")
+            .style.display = "block";
+
+        document.getElementById("result")
+            .className = "refused";
+
+        document.getElementById("result")
+            .innerHTML =
+            "⚠️ Impossible d'utiliser la caméra.<br><br>" +
+            "Vérifie que le site est bien ouvert en HTTPS.";
+
+    }
+
+}
+
+
+async function stopScanner() {
+
+    if (scanner) {
+
+        try {
+
+            await scanner.stop();
+
+        } catch(e) {}
+
+        try {
+
+            scanner.clear();
+
+        } catch(e) {}
+
+        scanner = null;
+
+    }
+
+
+    document.getElementById("reader")
+        .style.display = "none";
+
+}
+
+
+function clearLog() {
+
+    if (
+        confirm(
+            "Effacer tout le registre des entrées ?"
+        )
+    ) {
+
+        log = [];
+
+        save();
+
+        render();
+
+    }
+
+}
+
+
+render();
+
+</script>
+
+</body>
+</html>
